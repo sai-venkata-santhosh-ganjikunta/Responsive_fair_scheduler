@@ -1,0 +1,95 @@
+(Preemptive RFS)
+#include <stdio.h>
+#include <stdbool.h>
+#include <limits.h>
+
+#define MAX_PROCESSES 20
+#define TIME_SLICE 2
+
+typedef struct {
+    int pid;             // Process ID
+    int arrival;         // Arrival time
+    int burst;           // Burst time
+    int remaining;       // Remaining time
+    int waiting;         // Waiting time
+    int turnaround;      // Turnaround time
+    bool completed;      // Completion status
+} Process;
+
+// Blended SRTF + RR Scheduling Algorithm
+void blendedScheduling(Process processes[], int n) {
+    int completed = 0, currentTime = 0;
+    float totalWT = 0, totalTAT = 0;
+
+    printf("\nGantt Chart:\n");
+    while (completed < n) {
+        int selectedProcess = -1;
+        int shortestRemainingTime = INT_MAX;
+
+        // Step 1: Select the process with the shortest remaining time (SRTF behavior)
+        for (int i = 0; i < n; i++) {
+            if (processes[i].remaining > 0 && processes[i].arrival <= currentTime) {
+                if (processes[i].remaining < shortestRemainingTime) {
+                    shortestRemainingTime = processes[i].remaining;
+                    selectedProcess = i;
+                }
+            }
+        }
+
+        // If no process is ready, increment time
+        if (selectedProcess == -1) {
+            currentTime++;
+            continue;
+        }
+
+        // Step 2: Execute the selected process
+        Process *p = &processes[selectedProcess];
+        int startTime = currentTime;
+
+        if (p->remaining > TIME_SLICE) {
+            // Execute only for the time slice (RR behavior)
+            p->remaining -= TIME_SLICE;
+            currentTime += TIME_SLICE;
+        } else {
+            // Execute completely (SRTF behavior)
+            currentTime += p->remaining;
+            p->remaining = 0;
+            p->completed = true;
+            p->turnaround = currentTime - p->arrival;
+            p->waiting = p->turnaround - p->burst;
+            totalWT += p->waiting;
+            totalTAT += p->turnaround;
+            completed++;
+        }
+
+        // Print the Gantt Chart segment
+        printf("| P%d [%d-%d] ", p->pid, startTime, currentTime);
+    }
+    printf("|\n");
+
+    // Step 3: Display average waiting and turnaround times
+    printf("\nAverage Waiting Time: %.2f\n", totalWT / n);
+    printf("Average Turnaround Time: %.2f\n", totalTAT / n);
+}
+
+int main() {
+    int n;
+    Process processes[MAX_PROCESSES];
+
+    printf("Enter number of processes: ");
+    scanf("%d", &n);
+
+    for (int i = 0; i < n; i++) {
+        printf("Enter arrival time and burst time for process %d: ", i + 1);
+        processes[i].pid = i + 1;
+        scanf("%d %d", &processes[i].arrival, &processes[i].burst);
+        processes[i].remaining = processes[i].burst;
+        processes[i].waiting = 0;
+        processes[i].turnaround = 0;
+        processes[i].completed = false;
+    }
+
+    blendedScheduling(processes, n);
+
+    return 0;
+}
